@@ -2,6 +2,13 @@
 
 A library of Home Assistant Blueprints for automating your smart home.
 
+## Index
+
+| Blueprint | Domain | Description |
+|-----------|--------|-------------|
+| [Window Opening Alert](#window-opening-alert) | automation | Tiered alerts when a window is open too long or causes indoor temperature / humidity changes. |
+| [Bedtime Routine](#bedtime-routine) | script | Turns off lights, music, and devices, then checks whether windows, doors, and the garage are closed and sends tiered security alerts. |
+
 ## Blueprints
 
 ### [Window Opening Alert](./window-opening-alert/)
