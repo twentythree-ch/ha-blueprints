@@ -96,7 +96,7 @@ blueprint:
         Trigger a level 2 alert when the indoor temperature reaches the outdoor
         temperature plus this offset (e.g. outdoor + 3 °C means the room is
         only 3 °C warmer than outside).
-      default: 3
+      default: 8.5
       selector:
         number:
           min: 0
