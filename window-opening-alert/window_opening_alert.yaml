@@ -1,0 +1,259 @@
+blueprint:
+  name: Window Opening Alert
+  description: >
+    Monitors an open window and sends tiered alerts based on how long the window
+    has been open, indoor temperature drops, and indoor humidity returning to
+    normal. Three configurable alert levels (1 = informational, 2 = warning,
+    3 = critical) each support arbitrary Home Assistant actions such as
+    notifications, light flashes, or Signal messages.
+
+    Alerts are suppressed entirely when the outdoor temperature is higher than
+    the indoor temperature (no heating loss expected in that scenario).
+  domain: automation
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/window-opening-alert/window_opening_alert.yaml
+  input:
+
+    # ── Sensors ─────────────────────────────────────────────────────────────
+    window_sensor:
+      name: Window Sensor
+      description: Binary sensor that reports the window state (on = open, off = closed).
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+
+    indoor_temperature_sensor:
+      name: Indoor Temperature Sensor
+      description: Temperature sensor inside the room being monitored.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+
+    indoor_humidity_sensor:
+      name: Indoor Humidity Sensor
+      description: Humidity sensor inside the room being monitored.
+      selector:
+        entity:
+          domain: sensor
+          device_class: humidity
+
+    outdoor_temperature_sensor:
+      name: Outdoor Temperature Sensor
+      description: Temperature sensor outside (used to detect heat-loss risk).
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+
+    # ── Level 1 thresholds ──────────────────────────────────────────────────
+    level1_open_duration:
+      name: "Level 1 – Open Duration (minutes)"
+      description: >
+        Trigger a level 1 alert when the window has been continuously open for
+        this many minutes.
+      default: 15
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
+    humidity_normal_threshold:
+      name: "Level 1 – Humidity Normal Threshold (%)"
+      description: >
+        Trigger a level 1 alert when indoor humidity drops below this value
+        (ventilation has been effective and humidity is back to normal).
+      default: 60
+      selector:
+        number:
+          min: 20
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+
+    # ── Level 2 thresholds ──────────────────────────────────────────────────
+    temperature_drop_threshold:
+      name: "Level 2 – Indoor Temperature Threshold (°C)"
+      description: >
+        Trigger a level 2 alert when the indoor temperature drops below this
+        value.
+      default: 19
+      selector:
+        number:
+          min: 5
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+          mode: slider
+
+    outdoor_temp_offset:
+      name: "Level 2 – Outdoor Temperature Offset (°C)"
+      description: >
+        Trigger a level 2 alert when the indoor temperature reaches the outdoor
+        temperature plus this offset (e.g. outdoor + 3 °C means the room is
+        only 3 °C warmer than outside).
+      default: 8.5
+      selector:
+        number:
+          min: 0
+          max: 15
+          step: 0.5
+          unit_of_measurement: "°C"
+          mode: slider
+
+    # ── Level 3 thresholds ──────────────────────────────────────────────────
+    level3_open_duration:
+      name: "Level 3 – Open Duration (minutes)"
+      description: >
+        Trigger a level 3 alert when the window has been continuously open for
+        this many minutes. Must be greater than the level 1 open duration.
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 240
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
+    # ── Alert actions ────────────────────────────────────────────────────────
+    level1_actions:
+      name: Level 1 Alert Actions
+      description: >
+        Actions to run for level 1 alerts (informational).
+        Examples: send a mobile notification, turn on a soft indicator light.
+      default: []
+      selector:
+        action: {}
+
+    level2_actions:
+      name: Level 2 Alert Actions
+      description: >
+        Actions to run for level 2 alerts (warning).
+        Examples: flash a light, send a push notification with urgency.
+      default: []
+      selector:
+        action: {}
+
+    level3_actions:
+      name: Level 3 Alert Actions
+      description: >
+        Actions to run for level 3 alerts (critical).
+        Examples: send an urgent notification, trigger a siren or strobe script.
+      default: []
+      selector:
+        action: {}
+
+# Make entity IDs and numeric inputs available inside Jinja2 templates.
+variables:
+  indoor_temperature_sensor: !input indoor_temperature_sensor
+  outdoor_temperature_sensor: !input outdoor_temperature_sensor
+  outdoor_temp_offset: !input outdoor_temp_offset
+
+trigger:
+  # Level 1 – window open longer than configured duration
+  - platform: state
+    entity_id: !input window_sensor
+    to: "on"
+    for:
+      minutes: !input level1_open_duration
+    id: level1_duration
+
+  # Level 3 – window open much longer than configured duration
+  - platform: state
+    entity_id: !input window_sensor
+    to: "on"
+    for:
+      minutes: !input level3_open_duration
+    id: level3_duration
+
+  # Level 1 – humidity back to normal (ventilation effective)
+  - platform: numeric_state
+    entity_id: !input indoor_humidity_sensor
+    below: !input humidity_normal_threshold
+    id: humidity_normal
+
+  # Level 2 – indoor temperature dropped below the defined threshold
+  - platform: numeric_state
+    entity_id: !input indoor_temperature_sensor
+    below: !input temperature_drop_threshold
+    id: temperature_drop
+
+  # Level 2 – indoor temperature approaching outdoor temperature (within offset)
+  - platform: template
+    value_template: >
+      {% set t_in  = states(indoor_temperature_sensor)  | float(100) %}
+      {% set t_out = states(outdoor_temperature_sensor) | float(-100) %}
+      {{ t_in <= t_out + outdoor_temp_offset | float(0) and t_in > t_out }}
+    id: temp_near_outdoor
+
+  # Level 3 – indoor temperature has dropped to outdoor temperature
+  - platform: template
+    value_template: >
+      {% set t_in  = states(indoor_temperature_sensor)  | float(100) %}
+      {% set t_out = states(outdoor_temperature_sensor) | float(-100) %}
+      {{ t_in <= t_out }}
+    id: temp_at_outdoor
+
+condition:
+  # Only act while the window is actually open
+  - condition: state
+    entity_id: !input window_sensor
+    state: "on"
+  # Suppress all alerts when temperature sensors report unavailable/unknown –
+  # avoids false positives caused by sensor outages.
+  - condition: template
+    value_template: >
+      {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
+         and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
+
+action:
+  # Resolve current temperatures once, for use in the choose conditions below.
+  # Sensor availability is already confirmed by the condition block above.
+  - variables:
+      t_in:  "{{ states(indoor_temperature_sensor)  | float(0) }}"
+      t_out: "{{ states(outdoor_temperature_sensor) | float(0) }}"
+
+  - choose:
+      # ── Level 3 ──────────────────────────────────────────────────────────
+
+      # Indoor temperature reached outdoor level – critical, always alert.
+      - conditions:
+          - condition: trigger
+            id: temp_at_outdoor
+        sequence: !input level3_actions
+
+      # Window open extremely long – alert only when outside is colder.
+      - conditions:
+          - condition: trigger
+            id: level3_duration
+          - condition: template
+            value_template: "{{ t_out < t_in }}"
+        sequence: !input level3_actions
+
+      # ── Level 2 ──────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id:
+              - temp_near_outdoor
+              - temperature_drop
+          - condition: template
+            value_template: "{{ t_out < t_in }}"
+        sequence: !input level2_actions
+
+      # ── Level 1 ──────────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id:
+              - level1_duration
+              - humidity_normal
+          - condition: template
+            value_template: "{{ t_out < t_in }}"
+        sequence: !input level1_actions
+
+mode: single
+max_exceeded: silent
