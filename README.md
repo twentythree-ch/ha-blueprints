@@ -28,6 +28,32 @@ the indoor temperature.
 
 ---
 
+### [Bedtime Routine](./bedtime-routine/)
+
+A manually triggered script that turns off lights, music, and devices, then
+checks whether windows, doors, and the garage are closed and sends tiered
+alerts accordingly. Trigger it from the Home Assistant Companion app, a
+dashboard button, or an iOS / Android shortcut.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftwentythree-ch%2Fha-blueprints%2Fblob%2Fmain%2Fbedtime-routine%2Fbedtime_routine.yaml)
+
+**Built-in turn-off steps:** lights · media players · switches / smart plugs
+(each with its own entity selector; leave empty to skip)
+
+**House-state sensors:** window sensors · door sensors · garage door sensors
+
+| Alert level | Condition | Colour |
+|-------------|-----------|--------|
+| 1 – All Good | All windows, doors, and garage closed | 🟢 Green |
+| 2 – Windows Open | One or more window sensors report open | 🟠 Orange |
+| 3 – Door / Garage Open | A door or garage door is open | 🔴 Red |
+
+Level 2 and Level 3 can both trigger in the same run. Level 1 only runs when
+neither Level 2 nor Level 3 is triggered. Each level has fully configurable
+actions (HA notifications, Signal messages, scenes, …).
+
+---
+
 ## Usage
 
 1. Click the **Import Blueprint** badge on any blueprint above.

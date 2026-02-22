@@ -1,0 +1,225 @@
+blueprint:
+  name: Bedtime Routine
+  description: >
+    A manually triggered bedtime routine that turns off lights, music, and
+    devices, then checks the security state of your home and runs tiered alert
+    actions depending on what is found open.
+
+    **Alert levels:**
+
+    - Level 1 – All Good (green): All windows, doors, and garage doors are
+      closed. Run a "Good night, all secure ✅" notification or scene.
+    - Level 2 – Windows Open (orange): One or more window sensors report open.
+      Run an informational notification 🟠.
+    - Level 3 – Door / Garage Open (red): A door or garage door is open.
+      Run an urgent notification 🔴 (e.g. Signal message or HA notification to
+      the person who triggered the routine).
+
+    Level 2 and Level 3 can both trigger in the same run when both windows and
+    doors/garage are open. Level 1 only runs when neither Level 2 nor Level 3
+    is triggered.
+
+    Trigger this script from the Home Assistant Companion app, a dashboard
+    button, or an iOS / Android shortcut.
+  domain: script
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/bedtime-routine/bedtime_routine.yaml
+  input:
+
+    # ── Devices to turn off ──────────────────────────────────────────────────
+    lights_to_turn_off:
+      name: Lights to Turn Off
+      description: >
+        Lights or light groups to turn off as part of the bedtime routine.
+        Leave empty to skip this step.
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    media_to_turn_off:
+      name: Music / Media Players to Turn Off
+      description: >
+        Media players (speakers, TV, etc.) to turn off.
+        Leave empty to skip this step.
+        Note: uses the media_player.turn_off service – for streaming-only
+        players that do not support turn_off, add a stop/pause call in
+        Additional Actions instead.
+      default: []
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
+
+    switches_to_turn_off:
+      name: Devices / Switches to Turn Off
+      description: >
+        Switches or smart plugs to turn off.
+        Leave empty to skip this step.
+      default: []
+      selector:
+        entity:
+          domain: switch
+          multiple: true
+
+    additional_actions:
+      name: Additional Actions
+      description: >
+        Any extra actions to run unconditionally before the house-state check
+        (e.g. set a night scene, lock a door, adjust a thermostat).
+      default: []
+      selector:
+        action: {}
+
+    # ── House state sensors ──────────────────────────────────────────────────
+    window_sensors:
+      name: Window Sensors
+      description: >
+        Binary sensors for windows (device class: window). If any sensor
+        reports open (state = on), Level 2 actions are triggered.
+        Leave empty to skip the window check.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+          multiple: true
+
+    door_sensors:
+      name: Door Sensors
+      description: >
+        Binary sensors for doors (device class: door). If any sensor reports
+        open (state = on), Level 3 actions are triggered.
+        Leave empty to skip the door check.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: door
+          multiple: true
+
+    garage_sensors:
+      name: Garage Door Sensors
+      description: >
+        Binary sensors for garage doors (device class: garage_door). If any
+        sensor reports open (state = on), Level 3 actions are triggered.
+        Leave empty to skip the garage check.
+      default: []
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: garage_door
+          multiple: true
+
+    # ── Alert actions ────────────────────────────────────────────────────────
+    level1_actions:
+      name: "Level 1 – All Good Actions (green)"
+      description: >
+        Actions to run when all windows, doors, and the garage are closed.
+        Example: send a "Good night, all secure ✅" notification.
+      default: []
+      selector:
+        action: {}
+
+    level2_actions:
+      name: "Level 2 – Windows Open Actions (orange)"
+      description: >
+        Actions to run when one or more windows are open.
+        Example: send a "Window still open 🟠" notification.
+      default: []
+      selector:
+        action: {}
+
+    level3_actions:
+      name: "Level 3 – Door / Garage Open Actions (red)"
+      description: >
+        Actions to run when a door or garage door is open.
+        Example: send an urgent Signal message or HA notification 🔴 to the
+        person who triggered the routine.
+      default: []
+      selector:
+        action: {}
+
+# Make inputs available as variables for use in Jinja2 templates.
+variables:
+  lights_to_turn_off: !input lights_to_turn_off
+  media_to_turn_off: !input media_to_turn_off
+  switches_to_turn_off: !input switches_to_turn_off
+  window_sensors: !input window_sensors
+  door_sensors: !input door_sensors
+  garage_sensors: !input garage_sensors
+
+sequence:
+  # ── Step 1: Turn off lights ───────────────────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ lights_to_turn_off | length > 0 }}"
+        sequence:
+          - service: light.turn_off
+            target:
+              entity_id: "{{ lights_to_turn_off | join(',') }}"
+
+  # ── Step 2: Turn off media players ───────────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ media_to_turn_off | length > 0 }}"
+        sequence:
+          - service: media_player.turn_off
+            target:
+              entity_id: "{{ media_to_turn_off | join(',') }}"
+
+  # ── Step 3: Turn off switches / devices ──────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ switches_to_turn_off | length > 0 }}"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: "{{ switches_to_turn_off | join(',') }}"
+
+  # ── Step 4: Run additional actions ───────────────────────────────────────
+  - choose:
+      - conditions: []
+        sequence: !input additional_actions
+
+  # ── Step 5: Evaluate house state ─────────────────────────────────────────
+  - variables:
+      windows_open: >-
+        {% set ns = namespace(open=false) %}
+        {% for s in window_sensors %}
+          {% if is_state(s, 'on') %}{% set ns.open = true %}{% endif %}
+        {% endfor %}
+        {{ ns.open }}
+      doors_or_garage_open: >-
+        {% set ns = namespace(open=false) %}
+        {% for s in door_sensors + garage_sensors %}
+          {% if is_state(s, 'on') %}{% set ns.open = true %}{% endif %}
+        {% endfor %}
+        {{ ns.open }}
+
+  # ── Level 3: door or garage open ─────────────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ doors_or_garage_open }}"
+        sequence: !input level3_actions
+
+  # ── Level 2: windows open ─────────────────────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ windows_open }}"
+        sequence: !input level2_actions
+
+  # ── Level 1: all good ─────────────────────────────────────────────────────
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ not doors_or_garage_open and not windows_open }}"
+        sequence: !input level1_actions
+
+mode: single
+max_exceeded: silent
