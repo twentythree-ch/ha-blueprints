@@ -9,6 +9,9 @@ blueprint:
 
     Alerts are suppressed entirely when the outdoor temperature is higher than
     the indoor temperature (no heating loss expected in that scenario).
+
+    An optional "window closed" action set lets you react when the window is
+    closed again (e.g. turn off a notification light).
   domain: automation
   source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/window-opening-alert/window_opening_alert.yaml
   input:
@@ -148,6 +151,15 @@ blueprint:
       selector:
         action: {}
 
+    window_closed_actions:
+      name: Window Closed Actions
+      description: >
+        Actions to run when the window is closed again.
+        Examples: turn off a notification light, dismiss an alert.
+      default: []
+      selector:
+        action: {}
+
 # Make entity IDs and numeric inputs available inside Jinja2 templates.
 variables:
   indoor_temperature_sensor: !input indoor_temperature_sensor
@@ -155,6 +167,12 @@ variables:
   outdoor_temp_offset: !input outdoor_temp_offset
 
 trigger:
+  # Window closed – run window_closed_actions
+  - platform: state
+    entity_id: !input window_sensor
+    to: "off"
+    id: window_closed
+
   # Level 1 – window open longer than configured duration
   - platform: state
     entity_id: !input window_sensor
@@ -199,38 +217,47 @@ trigger:
       {{ t_in <= t_out }}
     id: temp_at_outdoor
 
-condition:
-  # Only act while the window is actually open
-  - condition: state
-    entity_id: !input window_sensor
-    state: "on"
-  # Suppress all alerts when temperature sensors report unavailable/unknown –
-  # avoids false positives caused by sensor outages.
-  - condition: template
-    value_template: >
-      {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
-         and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
+condition: []
 
 action:
   # Resolve current temperatures once, for use in the choose conditions below.
-  # Sensor availability is already confirmed by the condition block above.
   - variables:
       t_in:  "{{ states(indoor_temperature_sensor)  | float(0) }}"
       t_out: "{{ states(outdoor_temperature_sensor) | float(0) }}"
 
   - choose:
+      # ── Window closed ─────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: window_closed
+        sequence: !input window_closed_actions
+
       # ── Level 3 ──────────────────────────────────────────────────────────
 
       # Indoor temperature reached outdoor level – critical, always alert.
       - conditions:
           - condition: trigger
             id: temp_at_outdoor
+          - condition: state
+            entity_id: !input window_sensor
+            state: "on"
+          - condition: template
+            value_template: >
+              {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
+                 and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
         sequence: !input level3_actions
 
       # Window open extremely long – alert only when outside is colder.
       - conditions:
           - condition: trigger
             id: level3_duration
+          - condition: state
+            entity_id: !input window_sensor
+            state: "on"
+          - condition: template
+            value_template: >
+              {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
+                 and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
           - condition: template
             value_template: "{{ t_out < t_in }}"
         sequence: !input level3_actions
@@ -241,6 +268,13 @@ action:
             id:
               - temp_near_outdoor
               - temperature_drop
+          - condition: state
+            entity_id: !input window_sensor
+            state: "on"
+          - condition: template
+            value_template: >
+              {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
+                 and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
           - condition: template
             value_template: "{{ t_out < t_in }}"
         sequence: !input level2_actions
@@ -251,6 +285,13 @@ action:
             id:
               - level1_duration
               - humidity_normal
+          - condition: state
+            entity_id: !input window_sensor
+            state: "on"
+          - condition: template
+            value_template: >
+              {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
+                 and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
           - condition: template
             value_template: "{{ t_out < t_in }}"
         sequence: !input level1_actions
