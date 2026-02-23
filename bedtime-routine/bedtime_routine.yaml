@@ -180,8 +180,9 @@ blueprint:
     level1_alert_duration:
       name: "Level 1 – Alert Light Duration"
       description: >
-        How long (seconds) the alert lights stay on before turning off
-        automatically.
+        Fade-out duration in seconds. After the light turns on and reaches full
+        brightness it immediately starts fading to off over this many seconds,
+        entirely on the hardware side so the script does not block.
       default: 30
       selector:
         number:
