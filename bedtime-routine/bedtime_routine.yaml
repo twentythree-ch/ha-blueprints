@@ -30,26 +30,28 @@ blueprint:
       name: Lights to Turn Off
       description: >
         Lights or light groups to turn off as part of the bedtime routine.
+        You can select individual entities, devices, or entire areas.
         Leave empty to skip this step.
-      default: []
+      default: {}
       selector:
-        entity:
-          domain: light
-          multiple: true
+        target:
+          entity:
+            domain: light
 
     media_to_turn_off:
       name: Music / Media Players to Turn Off
       description: >
         Media players (speakers, TV, etc.) to turn off.
+        You can select individual entities, devices, or entire areas.
         Leave empty to skip this step.
         Note: uses the media_player.turn_off service – for streaming-only
         players that do not support turn_off, add a stop/pause call in
         Additional Actions instead.
-      default: []
+      default: {}
       selector:
-        entity:
-          domain: media_player
-          multiple: true
+        target:
+          entity:
+            domain: media_player
 
     switches_to_turn_off:
       name: Devices / Switches to Turn Off
@@ -121,6 +123,73 @@ blueprint:
       selector:
         action: {}
 
+    level1_alert_lights:
+      name: "Level 1 – Alert Lights"
+      description: >
+        Lights to turn on as a visual Level 1 alert (all good).
+        They will be turned off automatically after the configured duration.
+        Leave empty to skip the light alert.
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    level1_alert_brightness_pct:
+      name: "Level 1 – Alert Light Brightness"
+      description: Brightness of the alert lights (1–100 %).
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    level1_alert_color_enabled:
+      name: "Level 1 – Enable Alert Light Color"
+      description: Turn on to apply a specific RGB color to the alert lights.
+      default: false
+      selector:
+        boolean: {}
+
+    level1_alert_color:
+      name: "Level 1 – Alert Light Color"
+      description: RGB color applied when color is enabled (default green 🟢).
+      default: [0, 255, 0]
+      selector:
+        color_rgb: {}
+
+    level1_alert_effect:
+      name: "Level 1 – Alert Light Effect"
+      description: >
+        Light effect name (e.g. "colorloop", "pulse"). Leave empty for none.
+      default: ""
+      selector:
+        text: {}
+
+    level1_alert_transition:
+      name: "Level 1 – Alert Light Transition"
+      description: Transition time in seconds for turning the alert lights on and off.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+
+    level1_alert_duration:
+      name: "Level 1 – Alert Light Duration"
+      description: >
+        How long (seconds) the alert lights stay on before turning off
+        automatically.
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 3600
+          mode: box
+          unit_of_measurement: s
+
     level2_actions:
       name: "Level 2 – Windows Open Actions (orange)"
       description: >
@@ -129,6 +198,73 @@ blueprint:
       default: []
       selector:
         action: {}
+
+    level2_alert_lights:
+      name: "Level 2 – Alert Lights"
+      description: >
+        Lights to turn on as a visual Level 2 alert (window open).
+        They will be turned off automatically after the configured duration.
+        Leave empty to skip the light alert.
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    level2_alert_brightness_pct:
+      name: "Level 2 – Alert Light Brightness"
+      description: Brightness of the alert lights (1–100 %).
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    level2_alert_color_enabled:
+      name: "Level 2 – Enable Alert Light Color"
+      description: Turn on to apply a specific RGB color to the alert lights.
+      default: false
+      selector:
+        boolean: {}
+
+    level2_alert_color:
+      name: "Level 2 – Alert Light Color"
+      description: RGB color applied when color is enabled (default orange 🟠).
+      default: [255, 165, 0]
+      selector:
+        color_rgb: {}
+
+    level2_alert_effect:
+      name: "Level 2 – Alert Light Effect"
+      description: >
+        Light effect name (e.g. "colorloop", "pulse"). Leave empty for none.
+      default: ""
+      selector:
+        text: {}
+
+    level2_alert_transition:
+      name: "Level 2 – Alert Light Transition"
+      description: Transition time in seconds for turning the alert lights on and off.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+
+    level2_alert_duration:
+      name: "Level 2 – Alert Light Duration"
+      description: >
+        How long (seconds) the alert lights stay on before turning off
+        automatically.
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 3600
+          mode: box
+          unit_of_measurement: s
 
     level3_actions:
       name: "Level 3 – Door / Garage Open Actions (red)"
@@ -140,14 +276,102 @@ blueprint:
       selector:
         action: {}
 
+    level3_alert_lights:
+      name: "Level 3 – Alert Lights"
+      description: >
+        Lights to turn on as a visual Level 3 alert (door/garage open).
+        They will be turned off automatically after the configured duration.
+        Leave empty to skip the light alert.
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    level3_alert_brightness_pct:
+      name: "Level 3 – Alert Light Brightness"
+      description: Brightness of the alert lights (1–100 %).
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    level3_alert_color_enabled:
+      name: "Level 3 – Enable Alert Light Color"
+      description: Turn on to apply a specific RGB color to the alert lights.
+      default: false
+      selector:
+        boolean: {}
+
+    level3_alert_color:
+      name: "Level 3 – Alert Light Color"
+      description: RGB color applied when color is enabled (default red 🔴).
+      default: [255, 0, 0]
+      selector:
+        color_rgb: {}
+
+    level3_alert_effect:
+      name: "Level 3 – Alert Light Effect"
+      description: >
+        Light effect name (e.g. "colorloop", "strobe"). Leave empty for none.
+      default: ""
+      selector:
+        text: {}
+
+    level3_alert_transition:
+      name: "Level 3 – Alert Light Transition"
+      description: Transition time in seconds for turning the alert lights on and off.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+
+    level3_alert_duration:
+      name: "Level 3 – Alert Light Duration"
+      description: >
+        How long (seconds) the alert lights stay on before turning off
+        automatically.
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 3600
+          mode: box
+          unit_of_measurement: s
+
 # Make inputs available as variables for use in Jinja2 templates.
 variables:
-  lights_to_turn_off: !input lights_to_turn_off
-  media_to_turn_off: !input media_to_turn_off
+  lights_target: !input lights_to_turn_off
+  media_target: !input media_to_turn_off
   switches_to_turn_off: !input switches_to_turn_off
   window_sensors: !input window_sensors
   door_sensors: !input door_sensors
   garage_sensors: !input garage_sensors
+  level1_alert_lights: !input level1_alert_lights
+  level1_alert_brightness_pct: !input level1_alert_brightness_pct
+  level1_alert_color_enabled: !input level1_alert_color_enabled
+  level1_alert_color: !input level1_alert_color
+  level1_alert_effect: !input level1_alert_effect
+  level1_alert_transition: !input level1_alert_transition
+  level1_alert_duration: !input level1_alert_duration
+  level2_alert_lights: !input level2_alert_lights
+  level2_alert_brightness_pct: !input level2_alert_brightness_pct
+  level2_alert_color_enabled: !input level2_alert_color_enabled
+  level2_alert_color: !input level2_alert_color
+  level2_alert_effect: !input level2_alert_effect
+  level2_alert_transition: !input level2_alert_transition
+  level2_alert_duration: !input level2_alert_duration
+  level3_alert_lights: !input level3_alert_lights
+  level3_alert_brightness_pct: !input level3_alert_brightness_pct
+  level3_alert_color_enabled: !input level3_alert_color_enabled
+  level3_alert_color: !input level3_alert_color
+  level3_alert_effect: !input level3_alert_effect
+  level3_alert_transition: !input level3_alert_transition
+  level3_alert_duration: !input level3_alert_duration
 
 sequence:
   # ── Step 1: Turn off lights ───────────────────────────────────────────────
@@ -155,22 +379,28 @@ sequence:
     choose:
       - conditions:
           - condition: template
-            value_template: "{{ lights_to_turn_off | length > 0 }}"
+            value_template: >-
+              {% set t = lights_target | default({}) %}
+              {{ (t.entity_id | default([]) | length > 0)
+                 or (t.area_id | default([]) | length > 0)
+                 or (t.device_id | default([]) | length > 0) }}
         sequence:
           - service: light.turn_off
-            target:
-              entity_id: "{{ lights_to_turn_off | join(',') }}"
+            target: !input lights_to_turn_off
 
   # ── Step 2: Turn off media players ───────────────────────────────────────
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
-            value_template: "{{ media_to_turn_off | length > 0 }}"
+            value_template: >-
+              {% set t = media_target | default({}) %}
+              {{ (t.entity_id | default([]) | length > 0)
+                 or (t.area_id | default([]) | length > 0)
+                 or (t.device_id | default([]) | length > 0) }}
         sequence:
           - service: media_player.turn_off
-            target:
-              entity_id: "{{ media_to_turn_off | join(',') }}"
+            target: !input media_to_turn_off
 
   # ── Step 3: Turn off switches / devices ──────────────────────────────────
   - continue_on_error: true
@@ -206,28 +436,121 @@ sequence:
         {{ ns.open }}
 
   # ── Level 3: door or garage open ─────────────────────────────────────────
+  # Notifications and alert lights run in parallel so neither blocks the other.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ doors_or_garage_open }}"
-        sequence: !input level3_actions
+        sequence:
+          - parallel:
+              - sequence: !input level3_actions
+              - sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ level3_alert_lights | length > 0 }}"
+                        sequence:
+                          - variables:
+                              _l3_data: >-
+                                {% set d = {'brightness_pct': level3_alert_brightness_pct | int(100),
+                                            'transition': level3_alert_transition | int(1)} %}
+                                {% if level3_alert_color_enabled %}
+                                  {% set d = dict(d, rgb_color=level3_alert_color) %}
+                                {% endif %}
+                                {% if level3_alert_effect | length > 0 %}
+                                  {% set d = dict(d, effect=level3_alert_effect) %}
+                                {% endif %}
+                                {{ d }}
+                          - service: light.turn_on
+                            target:
+                              entity_id: "{{ level3_alert_lights }}"
+                            data: "{{ _l3_data }}"
+                          - delay:
+                              seconds: "{{ level3_alert_duration | int(30) }}"
+                          - service: light.turn_off
+                            target:
+                              entity_id: "{{ level3_alert_lights }}"
+                            data:
+                              transition: "{{ level3_alert_transition | int(1) }}"
 
   # ── Level 2: windows open ─────────────────────────────────────────────────
+  # Notifications and alert lights run in parallel so neither blocks the other.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ windows_open }}"
-        sequence: !input level2_actions
+        sequence:
+          - parallel:
+              - sequence: !input level2_actions
+              - sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ level2_alert_lights | length > 0 }}"
+                        sequence:
+                          - variables:
+                              _l2_data: >-
+                                {% set d = {'brightness_pct': level2_alert_brightness_pct | int(100),
+                                            'transition': level2_alert_transition | int(1)} %}
+                                {% if level2_alert_color_enabled %}
+                                  {% set d = dict(d, rgb_color=level2_alert_color) %}
+                                {% endif %}
+                                {% if level2_alert_effect | length > 0 %}
+                                  {% set d = dict(d, effect=level2_alert_effect) %}
+                                {% endif %}
+                                {{ d }}
+                          - service: light.turn_on
+                            target:
+                              entity_id: "{{ level2_alert_lights }}"
+                            data: "{{ _l2_data }}"
+                          - delay:
+                              seconds: "{{ level2_alert_duration | int(30) }}"
+                          - service: light.turn_off
+                            target:
+                              entity_id: "{{ level2_alert_lights }}"
+                            data:
+                              transition: "{{ level2_alert_transition | int(1) }}"
 
   # ── Level 1: all good ─────────────────────────────────────────────────────
+  # Notifications and alert lights run in parallel so neither blocks the other.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ not doors_or_garage_open and not windows_open }}"
-        sequence: !input level1_actions
+        sequence:
+          - parallel:
+              - sequence: !input level1_actions
+              - sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ level1_alert_lights | length > 0 }}"
+                        sequence:
+                          - variables:
+                              _l1_data: >-
+                                {% set d = {'brightness_pct': level1_alert_brightness_pct | int(100),
+                                            'transition': level1_alert_transition | int(1)} %}
+                                {% if level1_alert_color_enabled %}
+                                  {% set d = dict(d, rgb_color=level1_alert_color) %}
+                                {% endif %}
+                                {% if level1_alert_effect | length > 0 %}
+                                  {% set d = dict(d, effect=level1_alert_effect) %}
+                                {% endif %}
+                                {{ d }}
+                          - service: light.turn_on
+                            target:
+                              entity_id: "{{ level1_alert_lights }}"
+                            data: "{{ _l1_data }}"
+                          - delay:
+                              seconds: "{{ level1_alert_duration | int(30) }}"
+                          - service: light.turn_off
+                            target:
+                              entity_id: "{{ level1_alert_lights }}"
+                            data:
+                              transition: "{{ level1_alert_transition | int(1) }}"
 
 mode: single
 max_exceeded: silent
