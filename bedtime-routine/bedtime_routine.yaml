@@ -151,7 +151,8 @@ variables:
 
 sequence:
   # ── Step 1: Turn off lights ───────────────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ lights_to_turn_off | length > 0 }}"
@@ -161,7 +162,8 @@ sequence:
               entity_id: "{{ lights_to_turn_off | join(',') }}"
 
   # ── Step 2: Turn off media players ───────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ media_to_turn_off | length > 0 }}"
@@ -171,7 +173,8 @@ sequence:
               entity_id: "{{ media_to_turn_off | join(',') }}"
 
   # ── Step 3: Turn off switches / devices ──────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ switches_to_turn_off | length > 0 }}"
@@ -181,12 +184,14 @@ sequence:
               entity_id: "{{ switches_to_turn_off | join(',') }}"
 
   # ── Step 4: Run additional actions ───────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions: []
         sequence: !input additional_actions
 
   # ── Step 5: Evaluate house state ─────────────────────────────────────────
-  - variables:
+  - continue_on_error: true
+    variables:
       windows_open: >-
         {% set ns = namespace(open=false) %}
         {% for s in window_sensors %}
@@ -201,21 +206,24 @@ sequence:
         {{ ns.open }}
 
   # ── Level 3: door or garage open ─────────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ doors_or_garage_open }}"
         sequence: !input level3_actions
 
   # ── Level 2: windows open ─────────────────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ windows_open }}"
         sequence: !input level2_actions
 
   # ── Level 1: all good ─────────────────────────────────────────────────────
-  - choose:
+  - continue_on_error: true
+    choose:
       - conditions:
           - condition: template
             value_template: "{{ not doors_or_garage_open and not windows_open }}"
