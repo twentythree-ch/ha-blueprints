@@ -180,9 +180,8 @@ blueprint:
     level1_alert_duration:
       name: "Level 1 – Alert Light Duration"
       description: >
-        Fade-out duration in seconds. After the light turns on and reaches full
-        brightness it immediately starts fading to off over this many seconds,
-        entirely on the hardware side so the script does not block.
+        How long (seconds) the alert lights stay on before turning off
+        automatically.
       default: 30
       selector:
         number:
@@ -375,6 +374,23 @@ variables:
   level3_alert_duration: !input level3_alert_duration
 
 sequence:
+  # ── Async light-off gate ──────────────────────────────────────────────────
+  # Background instances fired via script.turn_on (from the main instance)
+  # carry _is_async_light_off: true. They handle the delayed turn-off and stop
+  # immediately; the rest of the sequence is only run by the main instance.
+  - if:
+      - condition: template
+        value_template: "{{ _is_async_light_off is defined and _is_async_light_off }}"
+    then:
+      - delay:
+          seconds: "{{ _async_light_duration | int(30) }}"
+      - service: light.turn_off
+        target:
+          entity_id: "{{ _async_light_entities }}"
+        data:
+          transition: "{{ _async_light_transition | int(1) }}"
+      - stop: "Async light-off complete"
+
   # ── Step 1: Turn off lights ───────────────────────────────────────────────
   - continue_on_error: true
     choose:
@@ -437,121 +453,123 @@ sequence:
         {{ ns.open }}
 
   # ── Level 3: door or garage open ─────────────────────────────────────────
-  # Notifications and alert lights run in parallel so neither blocks the other.
+  # Notifications run, lights turn on, then a background instance takes over
+  # the delayed turn-off so this instance finishes immediately.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ doors_or_garage_open }}"
         sequence:
-          - parallel:
-              - sequence: !input level3_actions
-              - sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ level3_alert_lights | length > 0 }}"
-                        sequence:
-                          - variables:
-                              _l3_data: >-
-                                {% set d = {'brightness_pct': level3_alert_brightness_pct | int(100),
-                                            'transition': level3_alert_transition | int(1)} %}
-                                {% if level3_alert_color_enabled %}
-                                  {% set d = dict(d, rgb_color=level3_alert_color) %}
-                                {% endif %}
-                                {% if level3_alert_effect | length > 0 %}
-                                  {% set d = dict(d, effect=level3_alert_effect) %}
-                                {% endif %}
-                                {{ d }}
-                          - service: light.turn_on
-                            target:
-                              entity_id: "{{ level3_alert_lights }}"
-                            data: "{{ _l3_data }}"
-                          - delay:
-                              seconds: "{{ level3_alert_duration | int(30) }}"
-                          - service: light.turn_off
-                            target:
-                              entity_id: "{{ level3_alert_lights }}"
-                            data:
-                              transition: "{{ level3_alert_transition | int(1) }}"
+          - sequence: !input level3_actions
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ level3_alert_lights | length > 0 }}"
+                sequence:
+                  - variables:
+                      _l3_data: >-
+                        {% set d = {'brightness_pct': level3_alert_brightness_pct | int(100),
+                                    'transition': level3_alert_transition | int(1)} %}
+                        {% if level3_alert_color_enabled %}
+                          {% set d = dict(d, rgb_color=level3_alert_color) %}
+                        {% endif %}
+                        {% if level3_alert_effect | length > 0 %}
+                          {% set d = dict(d, effect=level3_alert_effect) %}
+                        {% endif %}
+                        {{ d }}
+                  - service: light.turn_on
+                    target:
+                      entity_id: "{{ level3_alert_lights }}"
+                    data: "{{ _l3_data }}"
+                  - service: script.turn_on
+                    target:
+                      entity_id: "{{ this.entity_id }}"
+                    data:
+                      variables:
+                        _is_async_light_off: true
+                        _async_light_entities: "{{ level3_alert_lights }}"
+                        _async_light_duration: "{{ level3_alert_duration | int(30) }}"
+                        _async_light_transition: "{{ level3_alert_transition | int(1) }}"
 
   # ── Level 2: windows open ─────────────────────────────────────────────────
-  # Notifications and alert lights run in parallel so neither blocks the other.
+  # Same pattern: fire-and-forget background instance for the delayed turn-off.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ windows_open }}"
         sequence:
-          - parallel:
-              - sequence: !input level2_actions
-              - sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ level2_alert_lights | length > 0 }}"
-                        sequence:
-                          - variables:
-                              _l2_data: >-
-                                {% set d = {'brightness_pct': level2_alert_brightness_pct | int(100),
-                                            'transition': level2_alert_transition | int(1)} %}
-                                {% if level2_alert_color_enabled %}
-                                  {% set d = dict(d, rgb_color=level2_alert_color) %}
-                                {% endif %}
-                                {% if level2_alert_effect | length > 0 %}
-                                  {% set d = dict(d, effect=level2_alert_effect) %}
-                                {% endif %}
-                                {{ d }}
-                          - service: light.turn_on
-                            target:
-                              entity_id: "{{ level2_alert_lights }}"
-                            data: "{{ _l2_data }}"
-                          - delay:
-                              seconds: "{{ level2_alert_duration | int(30) }}"
-                          - service: light.turn_off
-                            target:
-                              entity_id: "{{ level2_alert_lights }}"
-                            data:
-                              transition: "{{ level2_alert_transition | int(1) }}"
+          - sequence: !input level2_actions
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ level2_alert_lights | length > 0 }}"
+                sequence:
+                  - variables:
+                      _l2_data: >-
+                        {% set d = {'brightness_pct': level2_alert_brightness_pct | int(100),
+                                    'transition': level2_alert_transition | int(1)} %}
+                        {% if level2_alert_color_enabled %}
+                          {% set d = dict(d, rgb_color=level2_alert_color) %}
+                        {% endif %}
+                        {% if level2_alert_effect | length > 0 %}
+                          {% set d = dict(d, effect=level2_alert_effect) %}
+                        {% endif %}
+                        {{ d }}
+                  - service: light.turn_on
+                    target:
+                      entity_id: "{{ level2_alert_lights }}"
+                    data: "{{ _l2_data }}"
+                  - service: script.turn_on
+                    target:
+                      entity_id: "{{ this.entity_id }}"
+                    data:
+                      variables:
+                        _is_async_light_off: true
+                        _async_light_entities: "{{ level2_alert_lights }}"
+                        _async_light_duration: "{{ level2_alert_duration | int(30) }}"
+                        _async_light_transition: "{{ level2_alert_transition | int(1) }}"
 
   # ── Level 1: all good ─────────────────────────────────────────────────────
-  # Notifications and alert lights run in parallel so neither blocks the other.
+  # Same pattern: fire-and-forget background instance for the delayed turn-off.
   - continue_on_error: true
     choose:
       - conditions:
           - condition: template
             value_template: "{{ not doors_or_garage_open and not windows_open }}"
         sequence:
-          - parallel:
-              - sequence: !input level1_actions
-              - sequence:
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ level1_alert_lights | length > 0 }}"
-                        sequence:
-                          - variables:
-                              _l1_data: >-
-                                {% set d = {'brightness_pct': level1_alert_brightness_pct | int(100),
-                                            'transition': level1_alert_transition | int(1)} %}
-                                {% if level1_alert_color_enabled %}
-                                  {% set d = dict(d, rgb_color=level1_alert_color) %}
-                                {% endif %}
-                                {% if level1_alert_effect | length > 0 %}
-                                  {% set d = dict(d, effect=level1_alert_effect) %}
-                                {% endif %}
-                                {{ d }}
-                          - service: light.turn_on
-                            target:
-                              entity_id: "{{ level1_alert_lights }}"
-                            data: "{{ _l1_data }}"
-                          - delay:
-                              seconds: "{{ level1_alert_duration | int(30) }}"
-                          - service: light.turn_off
-                            target:
-                              entity_id: "{{ level1_alert_lights }}"
-                            data:
-                              transition: "{{ level1_alert_transition | int(1) }}"
+          - sequence: !input level1_actions
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ level1_alert_lights | length > 0 }}"
+                sequence:
+                  - variables:
+                      _l1_data: >-
+                        {% set d = {'brightness_pct': level1_alert_brightness_pct | int(100),
+                                    'transition': level1_alert_transition | int(1)} %}
+                        {% if level1_alert_color_enabled %}
+                          {% set d = dict(d, rgb_color=level1_alert_color) %}
+                        {% endif %}
+                        {% if level1_alert_effect | length > 0 %}
+                          {% set d = dict(d, effect=level1_alert_effect) %}
+                        {% endif %}
+                        {{ d }}
+                  - service: light.turn_on
+                    target:
+                      entity_id: "{{ level1_alert_lights }}"
+                    data: "{{ _l1_data }}"
+                  - service: script.turn_on
+                    target:
+                      entity_id: "{{ this.entity_id }}"
+                    data:
+                      variables:
+                        _is_async_light_off: true
+                        _async_light_entities: "{{ level1_alert_lights }}"
+                        _async_light_duration: "{{ level1_alert_duration | int(30) }}"
+                        _async_light_transition: "{{ level1_alert_transition | int(1) }}"
 
-mode: single
+mode: parallel
+max: 10
 max_exceeded: silent
