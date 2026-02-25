@@ -71,14 +71,13 @@ blueprint:
     notify_devices:
       name: Notification Targets
       description: >
-        One or more Home Assistant Companion App notification entities that
-        should receive push notifications. The open notification is dismissed
-        automatically when the garage door closes. Leave empty to skip mobile
-        notifications.
+        One or more mobile devices running the Home Assistant Companion App
+        that should receive push notifications. The open notification is
+        dismissed automatically when the garage door closes. Leave empty to
+        skip mobile notifications.
       default: []
       selector:
-        entity:
-          domain: notify
+        device:
           integration: mobile_app
           multiple: true
 
@@ -125,7 +124,7 @@ action:
           # Send a push notification to every selected device.
           - action: notify.send_message
             target:
-              entity_id: !input notify_devices
+              device_id: !input notify_devices
             data:
               message: "{{ open_message }}"
 
@@ -148,7 +147,7 @@ action:
           # Send a "closed" push notification to every selected device.
           - action: notify.send_message
             target:
-              entity_id: !input notify_devices
+              device_id: !input notify_devices
             data:
               message: "{{ closed_message }}"
 
