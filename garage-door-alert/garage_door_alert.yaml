@@ -118,14 +118,12 @@ action:
               message: "{{ open_message }}"
               notification_id: "{{ notification_id }}"
 
-          # Send a tagged push notification to every selected device.
+          # Send a push notification to every selected device.
           - action: notify.send_message
             target:
               device_id: "{{ notify_devices }}"
             data:
               message: "{{ open_message }}"
-              data:
-                tag: "{{ notification_id }}"
 
       # ── Garage door closed ────────────────────────────────────────────────
       # Only act when the door was open long enough that an open notification
@@ -143,15 +141,12 @@ action:
             data:
               notification_id: "{{ notification_id }}"
 
-          # Send a "closed" push notification with the same tag to every
-          # selected device; this replaces the open notification on the device.
+          # Send a "closed" push notification to every selected device.
           - action: notify.send_message
             target:
               device_id: "{{ notify_devices }}"
             data:
               message: "{{ closed_message }}"
-              data:
-                tag: "{{ notification_id }}"
 
 mode: queued
 max: 5
