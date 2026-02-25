@@ -24,7 +24,7 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-          device_class: garage_door
+          # device_class: garage_door
 
     # ── Timing ──────────────────────────────────────────────────────────────
     open_duration:
