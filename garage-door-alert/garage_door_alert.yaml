@@ -1,0 +1,162 @@
+blueprint:
+  name: Garage Door Alert
+  description: >
+    Sends a notification when the garage door has been open for more than a
+    configurable number of minutes. When the door closes again, the open
+    notification is automatically dismissed on all selected devices and replaced
+    by a "door closed" confirmation message.
+
+    Supports any number of Home Assistant Companion App devices as notification
+    targets. A persistent HA notification is also created and dismissed
+    automatically.
+
+    The closed notification is only sent when the door was actually open long
+    enough to have triggered the open notification, so you won't receive
+    spurious "door closed" messages for brief openings.
+  domain: automation
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/garage-door-alert/garage_door_alert.yaml
+  input:
+
+    # ── Sensor ──────────────────────────────────────────────────────────────
+    garage_door_sensor:
+      name: Garage Door Sensor
+      description: Binary sensor that reports the garage door state (on = open, off = closed).
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: garage_door
+
+    # ── Timing ──────────────────────────────────────────────────────────────
+    open_duration:
+      name: Open Duration (minutes)
+      description: >
+        How long the garage door must be continuously open before a notification
+        is sent.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
+    # ── Messages ────────────────────────────────────────────────────────────
+    open_message:
+      name: Open Notification Message
+      description: Message sent when the garage door has been open too long.
+      default: "Garage door is open"
+      selector:
+        text: {}
+
+    closed_message:
+      name: Closed Notification Message
+      description: >
+        Message sent when the garage door closes (replaces the open notification
+        on all devices).
+      default: "Garage door has been closed"
+      selector:
+        text: {}
+
+    # ── Notification targeting ───────────────────────────────────────────────
+    notification_id:
+      name: Notification ID
+      description: >
+        Unique tag used to identify and dismiss the notification across all
+        targets. Change this if you run multiple instances of this blueprint.
+      default: "garage_door_notification"
+      selector:
+        text: {}
+
+    notify_devices:
+      name: Notification Targets
+      description: >
+        One or more Home Assistant Companion App devices that should receive
+        push notifications. The open notification is dismissed automatically
+        when the garage door closes. Leave empty to skip mobile notifications.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+# Make inputs available as variables for use in Jinja2 templates.
+variables:
+  notify_devices: !input notify_devices
+  notification_id: !input notification_id
+  open_message: !input open_message
+  closed_message: !input closed_message
+  open_duration: !input open_duration
+
+trigger:
+  # Door has been open for longer than the configured duration.
+  - platform: state
+    entity_id: !input garage_door_sensor
+    to: "on"
+    for:
+      minutes: !input open_duration
+    id: door_open
+
+  # Door just closed.
+  - platform: state
+    entity_id: !input garage_door_sensor
+    to: "off"
+    id: door_closed
+
+condition: []
+
+action:
+  - choose:
+      # ── Garage door open too long ─────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: door_open
+        sequence:
+          # Create a persistent HA notification.
+          - action: persistent_notification.create
+            data:
+              message: "{{ open_message }}"
+              notification_id: "{{ notification_id }}"
+
+          # Send a tagged push notification to every selected device.
+          - repeat:
+              for_each: "{{ notify_devices }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  message: "{{ open_message }}"
+                  data:
+                    tag: "{{ notification_id }}"
+
+      # ── Garage door closed ────────────────────────────────────────────────
+      # Only act when the door was open long enough that an open notification
+      # was actually sent (i.e. from_state duration >= open_duration minutes).
+      - conditions:
+          - condition: trigger
+            id: door_closed
+          - condition: template
+            value_template: >
+              {{ (now() - trigger.from_state.last_changed).total_seconds() / 60
+                 >= open_duration }}
+        sequence:
+          # Dismiss the persistent HA notification.
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: "{{ notification_id }}"
+
+          # Send a "closed" push notification with the same tag to every
+          # selected device; this replaces the open notification on the device.
+          - repeat:
+              for_each: "{{ notify_devices }}"
+              sequence:
+                - device_id: "{{ repeat.item }}"
+                  domain: mobile_app
+                  type: notify
+                  message: "{{ closed_message }}"
+                  data:
+                    tag: "{{ notification_id }}"
+
+mode: queued
+max: 5
+max_exceeded: silent
