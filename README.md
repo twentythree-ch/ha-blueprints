@@ -8,6 +8,7 @@ A library of Home Assistant Blueprints for automating your smart home.
 |-----------|--------|-------------|
 | [Window Opening Alert](#window-opening-alert) | automation | Tiered alerts when a window is open too long or causes indoor temperature / humidity changes. |
 | [Bedtime Routine](#bedtime-routine) | script | Turns off lights, music, and devices, then checks whether windows, doors, and the garage are closed and sends tiered security alerts. |
+| [Garage Door Alert](#garage-door-alert) | automation | Notifies selected users when the garage door has been open too long; automatically dismisses the alert when the door closes. |
 
 ## Blueprints
 
@@ -58,6 +59,25 @@ dashboard button, or an iOS / Android shortcut.
 Level 2 and Level 3 can both trigger in the same run. Level 1 only runs when
 neither Level 2 nor Level 3 is triggered. Each level has fully configurable
 actions (HA notifications, Signal messages, scenes, …).
+
+---
+
+### [Garage Door Alert](./garage-door-alert/)
+
+Monitors a garage door sensor and sends a notification when the door has been
+open for longer than a configurable duration. The alert is automatically
+dismissed on all selected devices when the door closes, and replaced by a
+"door closed" confirmation message. Supports any number of Home Assistant
+Companion App devices as notification targets.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftwentythree-ch%2Fha-blueprints%2Fblob%2Fmain%2Fgarage-door-alert%2Fgarage_door_alert.yaml)
+
+**Sensor required:** garage door contact sensor
+
+| Event | Condition | Result |
+|-------|-----------|--------|
+| Door opened | Stays open ≥ configured duration | Persistent HA notification · Tagged push notification to all selected devices |
+| Door closed | Was open ≥ configured duration | Persistent notification dismissed · "Closed" push notification replaces open alert |
 
 ---
 
