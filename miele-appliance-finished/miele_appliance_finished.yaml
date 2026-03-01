@@ -8,9 +8,10 @@ blueprint:
     **When the program ends:**
 
     - Creates a persistent Home Assistant notification.
-    - Sends a push notification to selected Companion App devices, but **only**
-      when at least one of the configured persons is in the specified home zone.
-      If no persons are configured the push notification is always sent.
+    - Sends a push notification to each person's own Companion App device(s),
+      but **only** to persons who are currently in the home zone. If Person A
+      and Person B are configured but only Person B is home, only Person B's
+      device receives the notification.
     - Turns on a configurable alert light (color, effect, brightness).
     - Runs any additional custom actions you define.
 
@@ -71,41 +72,116 @@ blueprint:
       selector:
         text: {}
 
-    notify_devices:
-      name: Companion App Notification Targets
+    # ── Home zone ─────────────────────────────────────────────────────────────
+    home_zone:
+      name: Home Zone
       description: >-
-        Mobile devices running the Home Assistant Companion App that should
-        receive push notifications. Notifications are only sent when at least
-        one of the configured persons is in the home zone (or always if no
-        persons are configured). Leave empty to skip mobile notifications.
+        The zone that counts as "at home". Used for all person presence checks
+        below.
+      default: zone.home
+      selector:
+        entity:
+          domain: zone
+
+    # ── Person → device pairs ─────────────────────────────────────────────────
+    # Each person is paired with their own Companion App device(s).
+    # A push notification is only sent to a person's device(s) when that person
+    # is currently in the home zone. Leave person slots empty to skip them.
+
+    person_1:
+      name: "Person 1"
+      description: First person to check for home presence.
+      default: ""
+      selector:
+        entity:
+          domain: person
+
+    person_1_devices:
+      name: "Person 1 – Notification Device(s)"
+      description: >-
+        Companion App device(s) belonging to Person 1. Only notified when
+        Person 1 is home. Leave empty to skip.
       default: []
       selector:
         device:
           integration: mobile_app
           multiple: true
 
-    # ── Home presence ─────────────────────────────────────────────────────────
-    home_persons:
-      name: Persons to Check
-      description: >-
-        Person entities used to determine whether someone is at home. If at
-        least one person is in the home zone the push notification is sent.
-        Leave empty to always send push notifications (no location check).
-      default: []
+    person_2:
+      name: "Person 2 (optional)"
+      description: Second person to check for home presence.
+      default: ""
       selector:
         entity:
           domain: person
+
+    person_2_devices:
+      name: "Person 2 – Notification Device(s)"
+      description: >-
+        Companion App device(s) belonging to Person 2. Only notified when
+        Person 2 is home. Leave empty to skip.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
           multiple: true
 
-    home_zone:
-      name: Home Zone
-      description: >-
-        The zone that counts as "at home". Only evaluated when at least one
-        person is configured above.
-      default: zone.home
+    person_3:
+      name: "Person 3 (optional)"
+      description: Third person to check for home presence.
+      default: ""
       selector:
         entity:
-          domain: zone
+          domain: person
+
+    person_3_devices:
+      name: "Person 3 – Notification Device(s)"
+      description: >-
+        Companion App device(s) belonging to Person 3. Only notified when
+        Person 3 is home. Leave empty to skip.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+    person_4:
+      name: "Person 4 (optional)"
+      description: Fourth person to check for home presence.
+      default: ""
+      selector:
+        entity:
+          domain: person
+
+    person_4_devices:
+      name: "Person 4 – Notification Device(s)"
+      description: >-
+        Companion App device(s) belonging to Person 4. Only notified when
+        Person 4 is home. Leave empty to skip.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+    person_5:
+      name: "Person 5 (optional)"
+      description: Fifth person to check for home presence.
+      default: ""
+      selector:
+        entity:
+          domain: person
+
+    person_5_devices:
+      name: "Person 5 – Notification Device(s)"
+      description: >-
+        Companion App device(s) belonging to Person 5. Only notified when
+        Person 5 is home. Leave empty to skip.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
 
     # ── Alert light ───────────────────────────────────────────────────────────
     alert_light:
@@ -183,12 +259,20 @@ blueprint:
 
 # Make inputs available as variables for Jinja2 templates.
 variables:
-  notify_devices: !input notify_devices
   notification_id: !input notification_id
   notification_title: !input notification_title
   notification_message: !input notification_message
-  home_persons: !input home_persons
   home_zone: !input home_zone
+  person_1: !input person_1
+  person_1_devices: !input person_1_devices
+  person_2: !input person_2
+  person_2_devices: !input person_2_devices
+  person_3: !input person_3
+  person_3_devices: !input person_3_devices
+  person_4: !input person_4
+  person_4_devices: !input person_4_devices
+  person_5: !input person_5
+  person_5_devices: !input person_5_devices
   alert_light: !input alert_light
   alert_light_brightness_pct: !input alert_light_brightness_pct
   alert_light_color_enabled: !input alert_light_color_enabled
@@ -218,19 +302,19 @@ action:
           - condition: trigger
             id: program_ended
         sequence:
-          # Resolve whether at least one person is at home.
+          # Collect devices belonging to persons who are currently in the home zone.
           - variables:
-              _someone_home: >-
-                {% if home_persons | length == 0 %}
-                  true
-                {% else %}
-                  {% set zone_name = home_zone | replace('zone.', '') %}
-                  {% set ns = namespace(home=false) %}
-                  {% for p in home_persons %}
-                    {% if is_state(p, zone_name) %}{% set ns.home = true %}{% endif %}
-                  {% endfor %}
-                  {{ ns.home }}
-                {% endif %}
+              _devices_to_notify: >-
+                {% set zone_name = home_zone | replace('zone.', '') %}
+                {% set all_persons = [person_1, person_2, person_3, person_4, person_5] %}
+                {% set all_devices = [person_1_devices, person_2_devices, person_3_devices, person_4_devices, person_5_devices] %}
+                {% set ns = namespace(result=[]) %}
+                {% for i in range(5) %}
+                  {% if all_persons[i] != '' and is_state(all_persons[i], zone_name) %}
+                    {% set ns.result = ns.result + all_devices[i] %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.result }}
 
           # Create a persistent HA notification.
           - action: persistent_notification.create
@@ -239,14 +323,14 @@ action:
               message: "{{ notification_message }}"
               notification_id: "{{ notification_id }}"
 
-          # Send push notification to companion app devices if someone is home.
+          # Send push notification to each home person's device(s).
           - if:
               - condition: template
-                value_template: "{{ notify_devices | length > 0 and _someone_home }}"
+                value_template: "{{ _devices_to_notify | length > 0 }}"
             then:
               - action: notify.send_message
                 target:
-                  device_id: !input notify_devices
+                  device_id: "{{ _devices_to_notify }}"
                 data:
                   title: "{{ notification_title }}"
                   message: "{{ notification_message }}"

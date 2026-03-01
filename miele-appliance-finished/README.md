@@ -20,13 +20,14 @@ The sensor is created automatically by the Miele integration for each appliance.
 
 | Trigger | Condition | Action |
 |---------|-----------|--------|
-| Appliance state → *"End of program"* | — | Create persistent HA notification · Send tagged push notification to all selected devices (home-zone check applied) · Turn on alert light · Run custom actions |
+| Appliance state → *"End of program"* | — | Create persistent HA notification · Send tagged push notification to each person who is currently in the home zone (only their own device(s)) · Turn on alert light · Run custom actions |
 | Appliance state leaves *"End of program"* | — | Dismiss persistent HA notification · Turn off alert light · Run reset actions |
 
-Push notifications are only sent when **at least one of the configured persons
-is in the specified home zone**. If no persons are configured the push
-notification is sent unconditionally (as long as notification targets are
-selected).
+Each person is paired with their own Companion App device(s). A push
+notification is sent **only to persons who are currently in the home zone**.
+If Person A and Person B are configured but only Person B is home, only
+Person B's device(s) receive the notification. Up to 5 person → device pairs
+can be configured.
 
 ## Inputs
 
@@ -44,14 +45,22 @@ selected).
 | **Notification Title** | `Appliance finished` | Title of the persistent and push notifications |
 | **Notification Message** | `Your appliance has finished its program.` | Body of the persistent and push notifications |
 | **Notification ID** | `miele_appliance_finished` | Unique tag used to match and dismiss notifications; change when running multiple instances |
-| **Companion App Notification Targets** | *(empty)* | One or more Companion App devices to notify; leave empty to skip mobile notifications |
 
-### Home Presence
+### Home Zone & Person → Device Pairs
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| **Persons to Check** | *(empty)* | Person entities used for the at-home check; leave empty to skip the check |
-| **Home Zone** | `zone.home` | Zone that counts as "at home" |
+| **Home Zone** | `zone.home` | Zone that counts as "at home" for all presence checks |
+| **Person 1** | *(empty)* | First person entity to check |
+| **Person 1 – Notification Device(s)** | *(empty)* | Companion App device(s) for Person 1; only notified when Person 1 is home |
+| **Person 2 (optional)** | *(empty)* | Second person entity to check |
+| **Person 2 – Notification Device(s)** | *(empty)* | Companion App device(s) for Person 2 |
+| **Person 3 (optional)** | *(empty)* | Third person entity to check |
+| **Person 3 – Notification Device(s)** | *(empty)* | Companion App device(s) for Person 3 |
+| **Person 4 (optional)** | *(empty)* | Fourth person entity to check |
+| **Person 4 – Notification Device(s)** | *(empty)* | Companion App device(s) for Person 4 |
+| **Person 5 (optional)** | *(empty)* | Fifth person entity to check |
+| **Person 5 – Notification Device(s)** | *(empty)* | Companion App device(s) for Person 5 |
 
 ### Alert Light
 
@@ -73,9 +82,12 @@ selected).
 
 ## Notes
 
-- The **persistent HA notification** (visible in the sidebar) is created with
-  the *Notification ID* as its key and is explicitly dismissed when the
-  appliance leaves the "program ended" state.
+- Push notifications are sent **per-person**: only persons currently in the
+  home zone receive a notification, and only to their own paired device(s).
+  Example: if Person A and B are configured but only B is home, only B's
+  device is notified.
+- Up to **5 person → device pairs** can be configured. Leave unused slots
+  empty.
 - Push notifications sent to mobile devices carry a **tag** equal to the
   *Notification ID*, so the notification is properly grouped on the device.
 - The **"Program Ended" State Value** is language-dependent. Open your HA
