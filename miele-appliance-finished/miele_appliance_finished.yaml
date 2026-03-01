@@ -1,0 +1,306 @@
+blueprint:
+  name: Miele Appliance Finished
+  description: >-
+    Notifies and triggers actions when a Miele washing machine or tumble dryer
+    finishes its program (requires the official Miele integration in Home
+    Assistant Core).
+
+    **When the program ends:**
+
+    - Creates a persistent Home Assistant notification.
+    - Sends a push notification to selected Companion App devices, but **only**
+      when at least one of the configured persons is in the specified home zone.
+      If no persons are configured the push notification is always sent.
+    - Turns on a configurable alert light (color, effect, brightness).
+    - Runs any additional custom actions you define.
+
+    **When the appliance leaves the "program ended" state:**
+
+    - Dismisses the persistent notification.
+    - Turns off the alert light.
+    - Runs any additional reset actions you define.
+
+    > **Tip:** Create one automation per appliance and set a different
+    > *Notification ID* for each so their notifications do not interfere.
+  domain: automation
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/miele-appliance-finished/miele_appliance_finished.yaml
+  input:
+
+    # ── Appliance ────────────────────────────────────────────────────────────
+    appliance_sensor:
+      name: Appliance State Sensor
+      description: >-
+        The Miele state sensor for the washing machine or tumble dryer
+        (e.g. sensor.washing_machine_state). The automation watches this
+        entity for the configured "program ended" state value.
+      selector:
+        entity:
+          domain: sensor
+
+    program_ended_state:
+      name: '"Program Ended" State Value'
+      description: >-
+        The sensor state value that indicates the program has finished.
+        For the Miele integration in English this is "End of program".
+        Adjust if your Home Assistant language reports a different string.
+      default: "End of program"
+      selector:
+        text: {}
+
+    # ── Notifications ─────────────────────────────────────────────────────────
+    notification_title:
+      name: Notification Title
+      description: Title of the notification sent when the program ends.
+      default: "Appliance finished"
+      selector:
+        text: {}
+
+    notification_message:
+      name: Notification Message
+      description: Message body sent when the program ends.
+      default: "Your appliance has finished its program."
+      selector:
+        text: {}
+
+    notification_id:
+      name: Notification ID
+      description: >-
+        Unique tag used to identify and dismiss the notification across all
+        targets. Change this when running multiple instances of this blueprint.
+      default: "miele_appliance_finished"
+      selector:
+        text: {}
+
+    notify_devices:
+      name: Companion App Notification Targets
+      description: >-
+        Mobile devices running the Home Assistant Companion App that should
+        receive push notifications. Notifications are only sent when at least
+        one of the configured persons is in the home zone (or always if no
+        persons are configured). Leave empty to skip mobile notifications.
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+
+    # ── Home presence ─────────────────────────────────────────────────────────
+    home_persons:
+      name: Persons to Check
+      description: >-
+        Person entities used to determine whether someone is at home. If at
+        least one person is in the home zone the push notification is sent.
+        Leave empty to always send push notifications (no location check).
+      default: []
+      selector:
+        entity:
+          domain: person
+          multiple: true
+
+    home_zone:
+      name: Home Zone
+      description: >-
+        The zone that counts as "at home". Only evaluated when at least one
+        person is configured above.
+      default: zone.home
+      selector:
+        entity:
+          domain: zone
+
+    # ── Alert light ───────────────────────────────────────────────────────────
+    alert_light:
+      name: Alert Light
+      description: >-
+        Light or light group to turn on when the program ends. It is turned
+        off automatically when the appliance leaves the "program ended" state.
+        Leave empty to skip the light alert.
+      default: []
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    alert_light_brightness_pct:
+      name: Alert Light Brightness
+      description: Brightness of the alert light (1–100 %).
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    alert_light_color_enabled:
+      name: Enable Alert Light Color
+      description: Turn on to apply a specific RGB color to the alert light.
+      default: false
+      selector:
+        boolean: {}
+
+    alert_light_color:
+      name: Alert Light Color
+      description: RGB color applied to the alert light when color is enabled.
+      default: [0, 255, 0]
+      selector:
+        color_rgb: {}
+
+    alert_light_effect:
+      name: Alert Light Effect
+      description: >-
+        Light effect name (e.g. "colorloop", "pulse"). Leave empty for none.
+      default: ""
+      selector:
+        text: {}
+
+    alert_light_transition:
+      name: Alert Light Transition
+      description: Transition time in seconds when turning the alert light on and off.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+
+    # ── Custom actions ────────────────────────────────────────────────────────
+    finished_actions:
+      name: Program Ended – Additional Actions
+      description: >-
+        Optional extra actions to run when the program ends (e.g. play a
+        chime, send a Signal message, control a smart plug).
+      default: []
+      selector:
+        action: {}
+
+    reset_actions:
+      name: Program Ended State Left – Additional Actions
+      description: >-
+        Optional extra actions to run when the appliance leaves the
+        "program ended" state (e.g. update a helper, dismiss a custom alert).
+      default: []
+      selector:
+        action: {}
+
+# Make inputs available as variables for Jinja2 templates.
+variables:
+  notify_devices: !input notify_devices
+  notification_id: !input notification_id
+  notification_title: !input notification_title
+  notification_message: !input notification_message
+  home_persons: !input home_persons
+  home_zone: !input home_zone
+  alert_light: !input alert_light
+  alert_light_brightness_pct: !input alert_light_brightness_pct
+  alert_light_color_enabled: !input alert_light_color_enabled
+  alert_light_color: !input alert_light_color
+  alert_light_effect: !input alert_light_effect
+  alert_light_transition: !input alert_light_transition
+
+trigger:
+  # Appliance program has ended.
+  - platform: state
+    entity_id: !input appliance_sensor
+    to: !input program_ended_state
+    id: program_ended
+
+  # Appliance has left the "program ended" state (e.g. door opened, reset).
+  - platform: state
+    entity_id: !input appliance_sensor
+    from: !input program_ended_state
+    id: program_ended_left
+
+condition: []
+
+action:
+  - choose:
+      # ── Program ended ───────────────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: program_ended
+        sequence:
+          # Resolve whether at least one person is at home.
+          - variables:
+              _someone_home: >-
+                {% if home_persons | length == 0 %}
+                  true
+                {% else %}
+                  {% set zone_name = home_zone | replace('zone.', '') %}
+                  {% set ns = namespace(home=false) %}
+                  {% for p in home_persons %}
+                    {% if is_state(p, zone_name) %}{% set ns.home = true %}{% endif %}
+                  {% endfor %}
+                  {{ ns.home }}
+                {% endif %}
+
+          # Create a persistent HA notification.
+          - action: persistent_notification.create
+            data:
+              title: "{{ notification_title }}"
+              message: "{{ notification_message }}"
+              notification_id: "{{ notification_id }}"
+
+          # Send push notification to companion app devices if someone is home.
+          - if:
+              - condition: template
+                value_template: "{{ notify_devices | length > 0 and _someone_home }}"
+            then:
+              - action: notify.send_message
+                target:
+                  device_id: !input notify_devices
+                data:
+                  title: "{{ notification_title }}"
+                  message: "{{ notification_message }}"
+                  data:
+                    tag: "{{ notification_id }}"
+
+          # Turn on the alert light.
+          - if:
+              - condition: template
+                value_template: "{{ alert_light | length > 0 }}"
+            then:
+              - variables:
+                  _light_data: >-
+                    {% set d = {'brightness_pct': alert_light_brightness_pct | int(100),
+                                'transition': alert_light_transition | int(1)} %}
+                    {% if alert_light_color_enabled %}
+                      {% set d = dict(d, rgb_color=alert_light_color) %}
+                    {% endif %}
+                    {% if alert_light_effect | length > 0 %}
+                      {% set d = dict(d, effect=alert_light_effect) %}
+                    {% endif %}
+                    {{ d }}
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ alert_light }}"
+                data: "{{ _light_data }}"
+
+          # Run additional custom actions.
+          - sequence: !input finished_actions
+
+      # ── Program ended state left ────────────────────────────────────────────
+      - conditions:
+          - condition: trigger
+            id: program_ended_left
+        sequence:
+          # Dismiss the persistent HA notification.
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: "{{ notification_id }}"
+
+          # Turn off the alert light.
+          - if:
+              - condition: template
+                value_template: "{{ alert_light | length > 0 }}"
+            then:
+              - action: light.turn_off
+                target:
+                  entity_id: "{{ alert_light }}"
+                data:
+                  transition: "{{ alert_light_transition | int(1) }}"
+
+          # Run additional reset actions.
+          - sequence: !input reset_actions
+
+mode: queued
+max: 5
+max_exceeded: silent
