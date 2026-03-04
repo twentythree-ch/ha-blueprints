@@ -36,7 +36,7 @@ can be configured.
 | Input | Default | Description |
 |-------|---------|-------------|
 | **Appliance State Sensor** | – | The Miele state sensor to watch |
-| **"Program Ended" State Value** | `End of program` | Sensor state string that means the program has finished; adjust for non-English HA installations |
+| **"Program Ended" State Value** | `program_ended` | Sensor state string that means the program has finished; adjust if your integration reports a different string |
 
 ### Notifications
 
@@ -90,9 +90,9 @@ can be configured.
   empty.
 - Push notifications sent to mobile devices carry a **tag** equal to the
   *Notification ID*, so the notification is properly grouped on the device.
-- The **"Program Ended" State Value** is language-dependent. Open your HA
+- The **"Program Ended" State Value** is integration-dependent. Open your HA
   Developer Tools → States, find the Miele sensor, finish a cycle, and note
-  the exact string that appears if the default `End of program` does not work.
+  the exact string that appears if the default `program_ended` does not work.
 - Create **one automation per appliance** and use a **different Notification
   ID** for each so notifications do not interfere with each other.
 - The blueprint runs in `queued` mode (max 5 concurrent runs) to handle edge

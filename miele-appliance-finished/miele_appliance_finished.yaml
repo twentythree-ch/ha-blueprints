@@ -42,9 +42,9 @@ blueprint:
       name: '"Program Ended" State Value'
       description: >-
         The sensor state value that indicates the program has finished.
-        For the Miele integration in English this is "End of program".
-        Adjust if your Home Assistant language reports a different string.
-      default: "End of program"
+        For the Miele integration this is typically "program_ended".
+        Adjust if your integration reports a different string.
+      default: "program_ended"
       selector:
         text: {}
 
@@ -334,8 +334,6 @@ action:
                 data:
                   title: "{{ notification_title }}"
                   message: "{{ notification_message }}"
-                  data:
-                    tag: "{{ notification_id }}"
 
           # Turn on the alert light.
           - if:
