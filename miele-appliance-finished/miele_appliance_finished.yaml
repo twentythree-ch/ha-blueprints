@@ -23,6 +23,8 @@ blueprint:
 
     > **Tip:** Create one automation per appliance and set a different
     > *Notification ID* for each so their notifications do not interfere.
+
+    v0.0.1
   domain: automation
   source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/miele-appliance-finished/miele_appliance_finished.yaml
   input:
