@@ -66,8 +66,9 @@ blueprint:
     notification_id:
       name: Notification ID
       description: >-
-        Unique tag used to identify and dismiss the notification across all
-        targets. Change this when running multiple instances of this blueprint.
+        Unique identifier used to create and dismiss the persistent Home
+        Assistant notification. Change this when running multiple instances
+        of this blueprint so their notifications do not interfere.
       default: "miele_appliance_finished"
       selector:
         text: {}

@@ -88,8 +88,6 @@ can be configured.
   device is notified.
 - Up to **5 person → device pairs** can be configured. Leave unused slots
   empty.
-- Push notifications sent to mobile devices carry a **tag** equal to the
-  *Notification ID*, so the notification is properly grouped on the device.
 - The **"Program Ended" State Value** is integration-dependent. Open your HA
   Developer Tools → States, find the Miele sensor, finish a cycle, and note
   the exact string that appears if the default `program_ended` does not work.
