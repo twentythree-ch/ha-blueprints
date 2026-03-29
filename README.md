@@ -9,6 +9,7 @@ A library of Home Assistant Blueprints for automating your smart home.
 | [Window Opening Alert](#window-opening-alert) | automation | Tiered alerts when a window is open too long or causes indoor temperature / humidity changes. |
 | [Bedtime Routine](#bedtime-routine) | script | Turns off lights, music, and devices, then checks whether windows, doors, and the garage are closed and sends tiered security alerts. |
 | [Garage Door Alert](#garage-door-alert) | automation | Notifies selected users when the garage door has been open too long; automatically dismisses the alert when the door closes. |
+| [Miele Appliance Finished](#miele-appliance-finished) | automation | Notifies and triggers actions when a Miele washing machine or tumble dryer finishes its program; turns off the alert light when the appliance is reset. |
 
 ## Blueprints
 
@@ -78,6 +79,26 @@ Companion App devices as notification targets.
 |-------|-----------|--------|
 | Door opened | Stays open ≥ configured duration | Persistent HA notification · Tagged push notification to all selected devices |
 | Door closed | Was open ≥ configured duration | Persistent notification dismissed · "Closed" push notification replaces open alert |
+
+---
+
+### [Miele Appliance Finished](./miele-appliance-finished/)
+
+Sends a persistent HA notification and a Companion App push notification when
+a Miele washing machine or tumble dryer finishes its program (requires the
+official Miele integration in HA Core). Push notifications are only sent when
+at least one of the configured persons is in the specified home zone. An alert
+light turns on when the program ends and turns off automatically when the
+appliance leaves the "program ended" state (e.g. after the door is opened).
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftwentythree-ch%2Fha-blueprints%2Fblob%2Fmain%2Fmiele-appliance-finished%2Fmiele_appliance_finished.yaml)
+
+**Sensor required:** Miele appliance state sensor (`sensor` domain)
+
+| Event | Condition | Result |
+|-------|-----------|--------|
+| Appliance state → *"End of program"* | — | Persistent HA notification · Push notification to selected devices (if person is in home zone) · Alert light on · Custom actions |
+| Appliance state leaves *"End of program"* | — | Persistent notification dismissed · Alert light off · Reset actions |
 
 ---
 
