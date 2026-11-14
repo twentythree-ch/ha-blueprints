@@ -75,8 +75,7 @@ services, light effects, Signal messages, etc.
 
 - The automation runs in `single` mode; if an alert is already being processed
   a second trigger within the same instant is silently ignored.
-- Temperature-based level 3 alerts (`temp_at_outdoor`) bypass the outdoor
-  temperature guard because at that point the room has already cooled to outdoor
-  temperature – the alert is always warranted.
+- All alerts are suppressed while the outdoor temperature is equal to or higher
+  than the indoor temperature (no heat loss expected).
 - Set the level 3 open duration **higher** than the level 1 open duration to
   avoid duplicate alerts for the same event.
