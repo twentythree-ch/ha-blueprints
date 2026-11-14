@@ -160,7 +160,15 @@ blueprint:
       selector:
         action: {}
 
-# Make entity IDs and numeric inputs available inside Jinja2 templates.
+# Template triggers cannot see `variables:` (those only exist at action time),
+# so the same values must be provided via `trigger_variables:` as well.
+trigger_variables:
+  indoor_temperature_sensor: !input indoor_temperature_sensor
+  outdoor_temperature_sensor: !input outdoor_temperature_sensor
+  outdoor_temp_offset: !input outdoor_temp_offset
+
+# Make entity IDs and numeric inputs available inside Jinja2 templates in the
+# condition/action sections.
 variables:
   indoor_temperature_sensor: !input indoor_temperature_sensor
   outdoor_temperature_sensor: !input outdoor_temperature_sensor
@@ -209,14 +217,6 @@ trigger:
       {{ t_in <= t_out + outdoor_temp_offset | float(0) and t_in > t_out }}
     id: temp_near_outdoor
 
-  # Level 3 – indoor temperature has dropped to outdoor temperature
-  - platform: template
-    value_template: >
-      {% set t_in  = states(indoor_temperature_sensor)  | float(100) %}
-      {% set t_out = states(outdoor_temperature_sensor) | float(-100) %}
-      {{ t_in <= t_out }}
-    id: temp_at_outdoor
-
 condition: []
 
 action:
@@ -233,19 +233,6 @@ action:
         sequence: !input window_closed_actions
 
       # ── Level 3 ──────────────────────────────────────────────────────────
-
-      # Indoor temperature reached outdoor level – critical, always alert.
-      - conditions:
-          - condition: trigger
-            id: temp_at_outdoor
-          - condition: state
-            entity_id: !input window_sensor
-            state: "on"
-          - condition: template
-            value_template: >
-              {{ states(indoor_temperature_sensor)  not in ['unavailable', 'unknown', 'none']
-                 and states(outdoor_temperature_sensor) not in ['unavailable', 'unknown', 'none'] }}
-        sequence: !input level3_actions
 
       # Window open extremely long – alert only when outside is colder.
       - conditions:
