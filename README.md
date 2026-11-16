@@ -9,6 +9,7 @@ A library of Home Assistant Blueprints for automating your smart home.
 | [Window Opening Alert](#window-opening-alert) | automation | Tiered alerts when a window is open too long or causes indoor temperature / humidity changes. |
 | [Bedtime Routine](#bedtime-routine) | script | Turns off lights, music, and devices, then checks whether windows, doors, and the garage are closed and sends tiered security alerts. |
 | [Garage Door Alert](#garage-door-alert) | automation | Notifies selected users when the garage door has been open too long; automatically dismisses the alert when the door closes. |
+| [Weather-Compensated Heating Offset](#weather-compensated-heating-offset) | automation | Hourly adjusts a heating group offset from the weather forecast, without touching room target temperatures. |
 
 ## Blueprints
 
@@ -78,6 +79,21 @@ Companion App devices as notification targets.
 |-------|-----------|--------|
 | Door opened | Stays open ≥ configured duration | Persistent HA notification · Tagged push notification to all selected devices |
 | Door closed | Was open ≥ configured duration | Persistent notification dismissed · "Closed" push notification replaces open alert |
+
+---
+
+### [Weather-Compensated Heating Offset](./weather-compensated-offset/)
+
+Adjusts a heating group offset (a `number` entity, e.g. the Group Offset of a
+Climate Group helper) from the hourly weather forecast. The averaging window
+lies a few hours ahead to account for the delay of underfloor heating. Room
+targets and presets are left alone; the offset is clamped and changes in small
+steps.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Ftwentythree-ch%2Fha-blueprints%2Fblob%2Fmain%2Fweather-compensated-offset%2Fweather_compensated_offset.yaml)
+
+**Entities required:** weather entity with hourly forecast · offset `number`
+entity
 
 ---
 
