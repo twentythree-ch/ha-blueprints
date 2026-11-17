@@ -1,6 +1,8 @@
 blueprint:
-  name: Weather-Compensated Heating Offset
+  name: Weather-Compensated Heating Offset v1.0.0
   description: >
+    Version 1.0.0
+
     Adjusts a heating group offset (a `number` entity such as the "Group
     Offset" of a Climate Group helper) based on the weather FORECAST, without
     touching any room target temperatures or presets.

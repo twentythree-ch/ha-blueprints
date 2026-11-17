@@ -1,5 +1,7 @@
 # Weather-Compensated Heating Offset
 
+**Current version: 1.0.0**
+
 Adjusts a heating group offset (a `number` entity, for example the **Group
 Offset** of a Climate Group helper) from the weather **forecast**. Room target
 temperatures and presets are never touched.
@@ -59,3 +61,21 @@ about 3–12 hours later. Recorder keeps raw history for 10 days by default.
 
 Home Assistant 2024.10 or newer. The weather entity must support the `hourly`
 forecast type.
+
+## Versioning
+
+The version is shown in the blueprint name (`name:` in the YAML) and in the
+first line of its description. It follows semantic versioning and must be
+raised with every change to the YAML:
+
+- **Patch** (1.0.x): bug fix, no change to inputs or behaviour.
+- **Minor** (1.x.0): new input with a default, or behaviour change that keeps
+  existing automations working.
+- **Major** (x.0.0): input renamed or removed, which breaks existing
+  automations.
+
+## Changelog
+
+### 1.0.0
+
+- Initial release.
