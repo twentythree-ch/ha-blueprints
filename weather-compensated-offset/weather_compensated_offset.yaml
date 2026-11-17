@@ -1,0 +1,290 @@
+blueprint:
+  name: Weather-Compensated Heating Offset v1.0.1
+  description: |
+    **Version 1.0.1**
+
+    Adjusts a heating group offset from the weather **forecast**. Room target
+    temperatures and presets are never touched.
+
+    ### How it works
+
+    Every hour (and at startup):
+
+    1. Reads the **hourly forecast** of your weather entity.
+    2. Averages the outdoor temperature over a window **a few hours ahead**.
+       Underfloor heating reacts with a delay, so the weather in a few hours
+       matters more than the weather now.
+    3. Calculates `offset = (reference temperature - forecast mean) × gain`.
+       Colder than the reference gives a positive offset, warmer a negative one.
+    4. Rounds to the step of the offset entity, limits the result and moves it
+       by at most one step per run.
+
+    If the forecast is unavailable, nothing is changed.
+
+    ### Example (defaults)
+
+    | Forecast mean | Offset |
+    |---------------|--------|
+    | 4 °C | +0.5 °C |
+    | 8 °C | 0 °C |
+    | 14 °C | -1.0 °C |
+
+    ### Tip
+
+    Select the optional **Forecast log helper** to record the forecast mean.
+    Its history lets you compare the forecast with the temperature actually
+    measured later.
+  domain: automation
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/weather-compensated-offset/weather_compensated_offset.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+
+    # ── Entities ────────────────────────────────────────────────────────────
+    entities:
+      name: Entities
+      icon: mdi:thermometer
+      input:
+        weather_entity:
+          name: Weather entity
+          description: >
+            Weather entity that supports hourly forecasts (for example MeteoSwiss
+            or met.no).
+          selector:
+            entity:
+              domain: weather
+
+        offset_entity:
+          name: Offset entity
+          description: >
+            Number entity that shifts the target temperature of all rooms, e.g.
+            the "Group Offset" of a Climate Group helper.
+          selector:
+            entity:
+              domain: number
+
+    # ── Tuning ──────────────────────────────────────────────────────────────
+    tuning:
+      name: Tuning
+      icon: mdi:tune
+      input:
+        reference_temperature:
+          name: Reference outdoor temperature (°C)
+          description: >
+            Forecast outdoor temperature at which the offset is 0. Colder gives
+            a positive offset, warmer a negative one.
+          default: 8
+          selector:
+            number:
+              min: -10
+              max: 25
+              step: 0.5
+              unit_of_measurement: "°C"
+              mode: box
+
+        gain:
+          name: Gain (offset per °C of difference)
+          description: >
+            How many °C of offset are applied per °C the forecast mean deviates
+            from the reference. 0.15 means a 10 °C colder forecast gives +1.5 °C.
+          default: 0.15
+          selector:
+            number:
+              min: 0
+              max: 1
+              step: 0.01
+              mode: box
+
+        forecast_from_hours:
+          name: Forecast window start (hours from now)
+          description: >
+            Start of the averaging window. Use roughly the delay of your heating
+            system (underfloor heating: about 3 hours).
+          default: 3
+          selector:
+            number:
+              min: 0
+              max: 24
+              step: 1
+              unit_of_measurement: h
+              mode: box
+
+        forecast_to_hours:
+          name: Forecast window end (hours from now)
+          description: Must be greater than the window start.
+          default: 12
+          selector:
+            number:
+              min: 1
+              max: 48
+              step: 1
+              unit_of_measurement: h
+              mode: box
+
+        min_offset:
+          name: Lowest allowed offset (°C)
+          default: -2
+          selector:
+            number:
+              min: -5
+              max: 0
+              step: 0.5
+              unit_of_measurement: "°C"
+              mode: box
+
+        max_offset:
+          name: Highest allowed offset (°C)
+          default: 2
+          selector:
+            number:
+              min: 0
+              max: 5
+              step: 0.5
+              unit_of_measurement: "°C"
+              mode: box
+
+        max_change_per_run:
+          name: Maximum change per run (°C)
+          description: >
+            Largest step the offset may move per hourly run. Keeps the heating
+            from reacting to a single odd forecast.
+          default: 0.5
+          selector:
+            number:
+              min: 0.5
+              max: 5
+              step: 0.5
+              unit_of_measurement: "°C"
+              mode: box
+
+    # ── Optional ────────────────────────────────────────────────────────────
+    optional:
+      name: Optional
+      icon: mdi:cog
+      collapsed: true
+      input:
+        forecast_log_entity:
+          name: Forecast log helper
+          description: >
+            Optional input_number (range at least -30 to 40, unit °C) that
+            receives the computed forecast mean every run. Its history lets you
+            compare the forecast with the temperature actually measured later.
+          default: ""
+          selector:
+            entity:
+              domain: input_number
+
+        extra_conditions:
+          name: Additional conditions
+          description: >
+            Optional conditions that must all be true for the offset to be
+            adjusted, e.g. house mode is not "vacation".
+          default: []
+          selector:
+            condition: {}
+
+mode: single
+max_exceeded: silent
+
+variables:
+  weather_entity: !input weather_entity
+  offset_entity: !input offset_entity
+  forecast_log_entity: !input forecast_log_entity
+  reference_temperature: !input reference_temperature
+  gain: !input gain
+  from_h: !input forecast_from_hours
+  to_h: !input forecast_to_hours
+  min_offset: !input min_offset
+  max_offset: !input max_offset
+  max_change: !input max_change_per_run
+
+triggers:
+  # Hourly, five minutes past the hour.
+  - trigger: time_pattern
+    minutes: "5"
+  # Also on startup so the offset is right after a restart.
+  - trigger: homeassistant
+    event: start
+
+conditions: !input extra_conditions
+
+actions:
+  # ── 1. Fetch the hourly forecast ──────────────────────────────────────────
+  - action: weather.get_forecasts
+    target:
+      entity_id: !input weather_entity
+    data:
+      type: hourly
+    response_variable: fc
+    continue_on_error: true
+
+  # ── 2. Average the forecast over the look-ahead window ────────────────────
+  - variables:
+      forecast_list: >-
+        {{ fc[weather_entity].forecast
+           if (fc is defined and fc[weather_entity] is defined)
+           else [] }}
+      window_temps: |-
+        {%- set start = now() + timedelta(hours=from_h | float(0)) -%}
+        {%- set end = now() + timedelta(hours=to_h | float(0)) -%}
+        {%- set ns = namespace(t=[]) -%}
+        {%- for f in forecast_list -%}
+          {%- set d = as_datetime(f.datetime, none) -%}
+          {%- if d is not none and d >= start and d <= end and f.temperature is number -%}
+            {%- set ns.t = ns.t + [f.temperature] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.t }}
+
+  # Stop quietly (visible in the trace) if the forecast was unavailable or the
+  # window contains no data. The offset is then left unchanged.
+  - condition: template
+    value_template: "{{ window_temps is list and window_temps | length > 0 }}"
+
+  # ── 3. Convert to an offset ───────────────────────────────────────────────
+  - variables:
+      forecast_mean: >-
+        {{ ((window_temps | sum) / (window_temps | length)) | round(1) }}
+      step: "{{ state_attr(offset_entity, 'step') | float(0.5) }}"
+      lo: >-
+        {{ [min_offset | float(-2), state_attr(offset_entity, 'min') | float(-5)] | max }}
+      hi: >-
+        {{ [max_offset | float(2), state_attr(offset_entity, 'max') | float(5)] | min }}
+      current: "{{ states(offset_entity) | float(0) }}"
+      raw_target: >-
+        {{ (reference_temperature | float(8) - forecast_mean | float(8)) * gain | float(0.15) }}
+      rounded: "{{ ((raw_target | float / step | float) | round(0)) * step | float }}"
+      target: "{{ [[rounded | float, lo | float] | max, hi | float] | min }}"
+      limited: >-
+        {{ current | float + ([[target | float - current | float, -(max_change | float(0.5))] | max, max_change | float(0.5)] | min) }}
+      new_offset: "{{ (((limited | float / step | float) | round(0)) * step | float) | round(2) }}"
+
+  # ── 4. Optional: record the forecast mean for later comparison ────────────
+  - if:
+      - condition: template
+        value_template: "{{ forecast_log_entity not in ['', none] }}"
+    then:
+      - action: input_number.set_value
+        target:
+          entity_id: "{{ forecast_log_entity }}"
+        data:
+          value: "{{ forecast_mean }}"
+        continue_on_error: true
+
+  # ── 5. Apply only if the offset actually changes ──────────────────────────
+  - condition: template
+    value_template: "{{ (new_offset | float - current | float) | abs > 0.001 }}"
+
+  - action: number.set_value
+    target:
+      entity_id: "{{ offset_entity }}"
+    data:
+      value: "{{ new_offset }}"
+
+  - action: logbook.log
+    data:
+      name: Weather-compensated heating offset
+      message: >-
+        Forecast mean {{ forecast_mean }} °C (+{{ from_h }}h to +{{ to_h }}h):
+        offset {{ current }} → {{ new_offset }} °C (target {{ target }} °C).
+      entity_id: "{{ offset_entity }}"
