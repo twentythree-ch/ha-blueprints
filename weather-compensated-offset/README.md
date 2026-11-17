@@ -1,6 +1,6 @@
 # Weather-Compensated Heating Offset
 
-**Current version: 1.0.0**
+**Current version: 1.0.1**
 
 Adjusts a heating group offset (a `number` entity, for example the **Group
 Offset** of a Climate Group helper) from the weather **forecast**. Room target
@@ -75,6 +75,11 @@ raised with every change to the YAML:
   automations.
 
 ## Changelog
+
+### 1.0.1
+
+- Reformatted the blueprint description (Markdown headings, list and table) for
+  a readable import preview. No functional change.
 
 ### 1.0.0
 

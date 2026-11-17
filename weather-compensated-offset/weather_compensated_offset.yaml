@@ -1,29 +1,39 @@
 blueprint:
-  name: Weather-Compensated Heating Offset v1.0.0
-  description: >
-    Version 1.0.0
+  name: Weather-Compensated Heating Offset v1.0.1
+  description: |
+    **Version 1.0.1**
 
-    Adjusts a heating group offset (a `number` entity such as the "Group
-    Offset" of a Climate Group helper) based on the weather FORECAST, without
-    touching any room target temperatures or presets.
+    Adjusts a heating group offset from the weather **forecast**. Room target
+    temperatures and presets are never touched.
 
-    Once per hour the blueprint reads the hourly forecast, averages the outdoor
-    temperature over a look-ahead window and converts the difference to a
-    reference temperature into an offset:
+    ### How it works
 
-    offset = (reference temperature - forecast mean) x gain
+    Every hour (and at startup):
 
-    Colder than the reference gives a positive offset, warmer a negative one.
-    The result is rounded to the step of the offset entity, clamped to the
-    configured limits and moved by at most one limited step per run, so the
-    offset glides instead of jumping.
+    1. Reads the **hourly forecast** of your weather entity.
+    2. Averages the outdoor temperature over a window **a few hours ahead**.
+       Underfloor heating reacts with a delay, so the weather in a few hours
+       matters more than the weather now.
+    3. Calculates `offset = (reference temperature - forecast mean) × gain`.
+       Colder than the reference gives a positive offset, warmer a negative one.
+    4. Rounds to the step of the offset entity, limits the result and moves it
+       by at most one step per run.
 
-    The look-ahead window is shifted into the future on purpose: underfloor
-    heating reacts with a delay of several hours, so what matters is the
-    weather in a few hours, not the weather right now.
+    If the forecast is unavailable, nothing is changed.
 
-    Optionally the computed forecast mean can be written to an input_number so
-    you can later compare it against what an outdoor sensor actually measured.
+    ### Example (defaults)
+
+    | Forecast mean | Offset |
+    |---------------|--------|
+    | 4 °C | +0.5 °C |
+    | 8 °C | 0 °C |
+    | 14 °C | -1.0 °C |
+
+    ### Tip
+
+    Select the optional **Forecast log helper** to record the forecast mean.
+    Its history lets you compare the forecast with the temperature actually
+    measured later.
   domain: automation
   source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/weather-compensated-offset/weather_compensated_offset.yaml
   homeassistant:
