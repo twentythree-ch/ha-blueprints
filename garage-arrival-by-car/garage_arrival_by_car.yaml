@@ -1,0 +1,172 @@
+blueprint:
+  name: Garage Arrival by Car
+  description: |
+    Opens the garage door automatically when you approach home **by car** —
+    and never when you arrive on foot.
+
+    ### How it works
+    The door opens when **all** of these are true:
+    - 📍 Your phone **enters the approach zone** around your home
+    - 🚗 Your phone is **connected to the car** (in-car sensor is `on`)
+    - 🚪 The garage door is **closed**
+    - ⏱️ Your phone has been **away for at least the minimum time** (guards
+      against GPS jitter right after you drive off)
+
+    Driving away never opens the door: you are already inside the approach
+    zone when you leave, so there is no "enter" event.
+
+    ### Requirements
+    - **Phone location tracker** from the Home Assistant Companion App
+    - **In-car sensor**, e.g. the Companion App *Android Auto* sensor, or an
+      `input_boolean` toggled by an iOS CarPlay shortcut
+    - **Approach zone**, a dedicated zone of about 300–500 m around your
+      home. Don't use the Home zone: it is usually entered too late.
+
+    ### Tip
+    Enable **High accuracy mode** in the Companion App while connected to
+    Android Auto, so location updates arrive in time.
+
+    📖 [Full documentation](https://github.com/twentythree-ch/ha-blueprints/tree/main/garage-arrival-by-car)
+  domain: automation
+  source_url: https://github.com/twentythree-ch/ha-blueprints/blob/main/garage-arrival-by-car/garage_arrival_by_car.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+
+    # ── Devices ─────────────────────────────────────────────────────────────
+    devices:
+      name: Devices
+      icon: mdi:car
+      input:
+        device_tracker:
+          name: Phone Location Tracker
+          description: >
+            GPS device tracker of the phone (Companion App). Its location is
+            used to detect when you enter the approach zone.
+          selector:
+            entity:
+              domain: device_tracker
+              integration: mobile_app
+
+        car_sensor:
+          name: In-Car Sensor
+          description: >
+            Sensor that is on while the phone is connected to the car, e.g.
+            the Companion App "Android Auto" binary sensor, or an
+            input_boolean set by a CarPlay shortcut. The garage only opens
+            while this is on.
+          selector:
+            entity:
+              domain:
+                - binary_sensor
+                - input_boolean
+
+        garage_cover:
+          name: Garage Door
+          description: Garage door cover to open.
+          selector:
+            entity:
+              domain: cover
+
+    # ── Zone ────────────────────────────────────────────────────────────────
+    zone:
+      name: Zone
+      icon: mdi:map-marker-radius
+      input:
+        approach_zone:
+          name: Approach Zone
+          description: >
+            Zone around your home whose entry triggers the opening. Create a
+            dedicated zone (300–500 m radius, may be passive) so the door
+            opens before you reach it; the Home zone is usually entered too
+            late.
+          selector:
+            entity:
+              domain: zone
+
+    # ── Settings ────────────────────────────────────────────────────────────
+    settings:
+      name: Settings
+      icon: mdi:cog
+      collapsed: true
+      input:
+        min_away_minutes:
+          name: Minimum Time Away (minutes)
+          description: >
+            The phone's location state must have been unchanged (away) for at
+            least this long before entering the zone. Prevents the door from
+            re-opening behind you when GPS jitters right after you drive off.
+          default: 5
+          selector:
+            number:
+              min: 0
+              max: 60
+              step: 1
+              unit_of_measurement: min
+              mode: box
+
+        notify_devices:
+          name: Notification Targets
+          description: >
+            Companion App devices to notify when the garage is opened. Leave
+            empty to skip notifications.
+          default: []
+          selector:
+            device:
+              integration: mobile_app
+              multiple: true
+
+        opened_message:
+          name: Opened Notification Message
+          description: Message sent when the garage door is opened.
+          default: "Garage opened – welcome home"
+          selector:
+            text: {}
+
+# Make inputs available as variables for use in Jinja2 templates.
+variables:
+  min_away_minutes: !input min_away_minutes
+  notify_devices: !input notify_devices
+  opened_message: !input opened_message
+
+triggers:
+  - trigger: zone
+    entity_id: !input device_tracker
+    zone: !input approach_zone
+    event: enter
+
+conditions:
+  # Only when driving: the phone is connected to the car.
+  - condition: state
+    entity_id: !input car_sensor
+    state: "on"
+
+  # Only when the door is fully closed (not open, opening or closing).
+  - condition: state
+    entity_id: !input garage_cover
+    state: closed
+
+  # Only when the phone has been away long enough (GPS jitter guard).
+  - condition: template
+    value_template: >
+      {{ trigger.from_state is not none
+         and (now() - trigger.from_state.last_changed).total_seconds() / 60
+             >= min_away_minutes }}
+
+actions:
+  - action: cover.open_cover
+    target:
+      entity_id: !input garage_cover
+
+  - if:
+      - condition: template
+        value_template: "{{ notify_devices | length > 0 }}"
+    then:
+      - action: notify.send_message
+        target:
+          device_id: !input notify_devices
+        data:
+          message: "{{ opened_message }}"
+
+mode: single
+max_exceeded: silent
